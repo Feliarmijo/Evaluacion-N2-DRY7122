@@ -1,0 +1,78 @@
+import requests
+
+# Configuración inicial de las URLs de GraphHopper
+geocode_url = "https://graphhopper.com/api/1/geocode"
+route_url = "https://graphhopper.com/api/1/route"
+
+# Tu Token de GraphHopper
+key = "abaa733d-0f84-41c8-ac3b-62019ac28cd6"
+
+while True:
+    print("\n--- Calculadora de Viajes ---")
+    origen = input("Ingrese Ciudad de Origen (o 'q' para salir): ")
+    if origen.lower() == 'q':
+        print("Saliendo del programa...")
+        break
+    
+    destino = input("Ingrese Ciudad de Destino (o 'q' para salir): ")
+    if destino.lower() == 'q':
+        print("Saliendo del programa...")
+        break
+
+    # 1. Obtener coordenadas del Origen
+    req_origen = requests.get(geocode_url, params={"q": origen, "key": key})
+    data_origen = req_origen.json()
+    
+    if not data_origen.get("hits"):
+        print(f"No se pudo encontrar la ciudad de origen: {origen}")
+        continue
+        
+    lat_origen = data_origen["hits"][0]["point"]["lat"]
+    lng_origen = data_origen["hits"][0]["point"]["lng"]
+
+    # 2. Obtener coordenadas del Destino
+    req_destino = requests.get(geocode_url, params={"q": destino, "key": key})
+    data_destino = req_destino.json()
+    
+    if not data_destino.get("hits"):
+        print(f"No se pudo encontrar la ciudad de destino: {destino}")
+        continue
+
+    lat_destino = data_destino["hits"][0]["point"]["lat"]
+    lng_destino = data_destino["hits"][0]["point"]["lng"]
+
+    # 3. Calcular la ruta usando las coordenadas obtenidas
+    parametros_ruta = {
+        "point": [f"{lat_origen},{lng_origen}", f"{lat_destino},{lng_destino}"],
+        "vehicle": "car",
+        "locale": "es",
+        "key": key
+    }
+    
+    response = requests.get(route_url, params=parametros_ruta)
+    
+    if response.status_code == 200:
+        data = response.json()
+        paths = data["paths"][0]
+        
+        # Medir la distancia en kilómetros
+        distancia_km = paths["distance"] / 1000
+        
+        # Mostrar la duración del viaje en horas, minutos y segundos
+        tiempo_ms = paths["time"]
+        segundos_totales = int(tiempo_ms / 1000)
+        horas = segundos_totales // 3600
+        minutos = (segundos_totales % 3600) // 60
+        segundos = segundos_totales % 60
+        
+        # Mostrar el combustible requerido (asumiendo 12 km/litro de rendimiento)
+        litros_combustible = distancia_km / 12
+        
+        # Imprimir la narrativa con dos decimales
+        print(f"\nNarrativa del viaje de {origen} a {destino}:")
+        print(f"Distancia total: {distancia_km:.2f} km")
+        print(f"Duración estimada: {horas} horas, {minutos} minutos y {segundos} segundos")
+        print(f"Combustible requerido: {litros_combustible:.2f} litros")
+    else:
+        print(f"\nError {response.status_code} al calcular la ruta.")
+        print(f"Detalle: {response.text}")
